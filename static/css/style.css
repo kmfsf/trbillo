@@ -288,6 +288,7 @@ input[type="text"],
 input[type="email"],
 input[type="password"],
 input[type="date"],
+input[type="url"],
 textarea,
 select {
   background: rgba(0, 0, 0, 0.25);
@@ -1685,6 +1686,11 @@ dialog::backdrop {
   --accent-glow: rgba(79, 70, 229, 0.15);
 
   --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .logo-text {
+  background: linear-gradient(135deg, var(--text-primary) 40%, var(--accent-primary) 100%);
+  -webkit-background-clip: text;
 }
 
 [data-theme="light"] .glass-panel {

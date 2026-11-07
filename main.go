@@ -28,6 +28,39 @@ func envOr(key, defaultVal string) string {
 	return defaultVal
 }
 
+// BasePath is the URL prefix the app is served under: "" at the root of its
+// host, or "/prefix" (no trailing slash) when it shares a host with something
+// else, such as a static site at the root. Every route, asset URL and the
+// session cookie live under it. Set from BASE_PATH at startup.
+var BasePath string
+
+// normalizeBasePath accepts "", "/", "prefix", "/prefix/" or "/one/or/more"
+// and returns "" or "/one/or/more": a leading slash, no trailing slash.
+func normalizeBasePath(raw string) (string, error) {
+	p := strings.Trim(strings.TrimSpace(raw), "/")
+	if p == "" {
+		return "", nil
+	}
+	for _, seg := range strings.Split(p, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return "", fmt.Errorf("%q is not a usable path prefix", raw)
+		}
+		if strings.ContainsAny(seg, " ?#{}") {
+			return "", fmt.Errorf("%q is not a usable path prefix", raw)
+		}
+	}
+	return "/" + p, nil
+}
+
+// cookiePath is where the session cookie applies: the base path, so an app
+// under /prefix does not hand its cookie to whatever else lives on the host.
+func cookiePath() string {
+	if BasePath == "" {
+		return "/"
+	}
+	return BasePath
+}
+
 // computeStaticVersion returns the latest mtime of any file under dir as a
 // unix-seconds string. Used as a cache-busting query string on asset URLs.
 func computeStaticVersion(dir string) string {
@@ -166,10 +199,11 @@ func main() {
 	flag.Parse()
 
 	// Environment configuration
-	basePath := strings.TrimRight(os.Getenv("BASE_PATH"), "/")
-	if basePath != "" && !strings.HasPrefix(basePath, "/") {
-		basePath = "/" + basePath
+	basePath, err := normalizeBasePath(os.Getenv("BASE_PATH"))
+	if err != nil {
+		log.Fatalf("BASE_PATH: %v", err)
 	}
+	BasePath = basePath
 	// Bind to loopback only by default so the server is reached through the
 	// reverse proxy, never directly. Set BIND_HOST (e.g. 0.0.0.0) to expose it.
 	// Not named HOST: some shells export that as the machine's hostname.
@@ -251,6 +285,17 @@ func main() {
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Write(indexHTML)
 	})
+	if p != "" {
+		// Under a prefix the app lives at /prefix/ only. The bare prefix and
+		// the root both redirect there, so whether the proxy hands this
+		// server the whole host or just the prefix, the short forms land on
+		// the app and the proxy needs no redirect of its own.
+		toApp := func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, p+"/", http.StatusPermanentRedirect)
+		}
+		mux.HandleFunc("GET "+p, toApp)
+		mux.HandleFunc("GET /{$}", toApp)
+	}
 	fileServer := http.FileServer(http.Dir(staticDir))
 	staticPrefix := p + "/static/"
 	mux.Handle("GET "+staticPrefix, http.StripPrefix(staticPrefix, fileServer))

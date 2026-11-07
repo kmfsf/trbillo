@@ -20,7 +20,10 @@ binary, SQLite for storage, no JavaScript build step, no external services.
   team/code management, board-member and ownership administration
 - Themable UI (dark, light, autumn, spring)
 - Mountable under a URL subpath (e.g. `/trbillo`) via `BASE_PATH`, so it
-  can sit alongside other apps on one domain
+  can sit alongside other apps, or a static site, on one domain: routes,
+  assets and the session cookie all live under the prefix, and `/` and
+  the bare prefix redirect to it (trbillo.com runs this way, with its
+  marketing pages at the root and the app at `/app/`)
 - Statically linked single binary (~10 MB) — drop it onto any Linux box
 
 ## Quick start (local dev)
@@ -37,7 +40,7 @@ Environment variables (all optional):
 
 | Env | Default | Purpose |
 |---|---|---|
-| `BASE_PATH` | empty | URL prefix to mount under (`/trbillo`, etc.) |
+| `BASE_PATH` | empty | URL prefix to mount under (`/trbillo`, `/app`); see DEPLOY.md |
 | `BIND_HOST` | `127.0.0.1` | Interface to bind; `0.0.0.0` exposes the server to other hosts |
 | `PORT` | `8080` | TCP port to bind |
 | `DB_PATH` | `./trbillo.db` | SQLite file location |

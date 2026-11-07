@@ -43,8 +43,8 @@ rundown of the admin panel, teams, and eval accounts.
 
 ## Wire up Caddy
 
-Add the two `handle` blocks from `caddy-fragment.conf` to your existing
-`your-domain.com { ... }` block in `/etc/caddy/Caddyfile`, then:
+Add the matcher and `handle` block from `caddy-fragment.conf` to your
+existing `your-domain.com { ... }` block in `/etc/caddy/Caddyfile`, then:
 
 ```bash
 sudo caddy validate --config /etc/caddy/Caddyfile

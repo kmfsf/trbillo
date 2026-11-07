@@ -176,7 +176,7 @@ func setSessionCookie(w http.ResponseWriter, r *http.Request, token string, expi
 		Name:     "session_token",
 		Value:    token,
 		Expires:  expires,
-		Path:     "/",
+		Path:     cookiePath(),
 		HttpOnly: true,
 		Secure:   !isLocalhost(r), // Secure=true for non-localhost (HTTPS)
 		SameSite: http.SameSiteStrictMode,
@@ -189,7 +189,7 @@ func clearSessionCookie(w http.ResponseWriter, r *http.Request) {
 		Name:     "session_token",
 		Value:    "",
 		Expires:  time.Now().Add(-1 * time.Hour),
-		Path:     "/",
+		Path:     cookiePath(),
 		HttpOnly: true,
 		Secure:   !isLocalhost(r),
 		SameSite: http.SameSiteStrictMode,

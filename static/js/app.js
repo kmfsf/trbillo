@@ -304,6 +304,13 @@ document.addEventListener('DOMContentLoaded', () => {
       enterApp();
     } catch (err) {
       showAuth();
+      // A "Sign up" link from outside (the marketing site's button) arrives
+      // as /#signup: open the registration form instead of the login form,
+      // then drop the hash so a reload or a logout shows login as usual.
+      if (location.hash === '#signup') {
+        el.showSignup.click();
+        history.replaceState(null, '', location.pathname + location.search);
+      }
     }
 
     // Modal click-outside fallback setup
@@ -718,11 +725,9 @@ document.addEventListener('DOMContentLoaded', () => {
         ? task.description.slice(0, BODY_PREVIEW_LEN)
         : task.description;
       if (isTruncated) {
-        bodyHTML = `
-          <div class="card-body" data-full="${escapeHTML(task.description)}" data-preview="${escapeHTML(preview)}">
-            <span class="card-body-text">${escapeHTML(preview)}</span><button class="card-body-toggle" type="button" aria-expanded="false">…</button>
-          </div>
-        `;
+        // No whitespace inside .card-body: it is white-space: pre-wrap, so a
+        // newline and indent here would render as a blank first line.
+        bodyHTML = `<div class="card-body" data-full="${escapeHTML(task.description)}" data-preview="${escapeHTML(preview)}"><span class="card-body-text">${escapeHTML(preview)}</span><button class="card-body-toggle" type="button" aria-expanded="false">…</button></div>`;
       } else {
         bodyHTML = `<div class="card-body"><span class="card-body-text">${escapeHTML(preview)}</span></div>`;
       }

@@ -6,7 +6,8 @@ Throughout this guide, `your-domain.com` is a placeholder — replace it
 with the domain you own. The `/trbillo` URL prefix is also a deployment
 choice: set `BASE_PATH=""` in the systemd unit and adjust the Caddy
 config to mount at the root, or change `BASE_PATH=/whatever` to use a
-different prefix.
+different prefix. "Trbillo beside a static site" below is the shape
+trbillo.com uses: the marketing pages at the root, the app at `/app/`.
 
 ## Architecture
 
@@ -112,7 +113,7 @@ automatically as long as the site is named with a real domain (e.g.
 `your-domain.com`, not `:80` or `http://...`).
 
 Full `/etc/caddy/Caddyfile` for serving static files at the root and
-proxying `/trbillo/*` to the Go server:
+proxying `/trbillo` and `/trbillo/*` to the Go server:
 
 ```caddy
 your-domain.com {
@@ -120,10 +121,8 @@ your-domain.com {
     root * /var/www/html
 
     # --- Trbillo (proxied to the Go server on localhost:8080) ---
-    handle /trbillo {
-        redir /trbillo/ 308
-    }
-    handle /trbillo/* {
+    @trbillo path /trbillo /trbillo/*
+    handle @trbillo {
         reverse_proxy localhost:8080
     }
 
@@ -141,9 +140,18 @@ your-domain.com {
 Notes:
 
 - `handle` blocks are mutually exclusive and Caddy matches by specificity,
-  not order, so `/trbillo/*` always wins over the catch-all `handle {}`.
+  not order, so the `/trbillo` matcher always wins over the catch-all
+  `handle {}`.
+- The bare `/trbillo` is routed to the app too: the server answers it with
+  a 308 to `/trbillo/`, so Caddy needs no redirect of its own. (It also
+  redirects `GET /` to `/trbillo/`, which matters only when the whole host
+  is proxied to it.)
 - `reverse_proxy` upgrades WebSockets automatically, so `/trbillo/api/ws`
   and `/trbillo/api/ws/user` work without extra config.
+- Use `handle`, not `handle_path`: the prefix must reach the Go server,
+  which expects it on every route. The session cookie is scoped to the
+  prefix (`Path=/trbillo`), so whatever else lives on the host never
+  receives it.
 - Make sure the static root exists and is readable by the `caddy` user:
   ```bash
   sudo mkdir -p /var/www/html
@@ -165,6 +173,36 @@ sudo systemctl reload caddy
 Visit `https://your-domain.com/trbillo/` — the Trbillo login page should load.
 Create a test account, make a board, drop a card on it. Open the same
 board in two browsers to confirm real-time WebSocket sync.
+
+### Trbillo beside a static site
+
+The same mechanism puts a marketing site at the root of a hostname and
+the app under `/app/`, which is how trbillo.com is laid out: the pages
+come from the `trbillo-site` repo and deploy on their own with that
+repo's `deploy/push.sh`; the app runs with `BASE_PATH=/app`. Neither
+deployment touches the other.
+
+```caddy
+trbillo.example.com {
+    @app path /app /app/*
+    handle @app {
+        reverse_proxy localhost:8080
+    }
+    handle {
+        root * /home/sites/trbillo/www
+        file_server
+    }
+    encode zstd gzip
+}
+```
+
+Moving an existing root installation under `/app` is a change of
+`BASE_PATH` in the unit (or the environment file), a restart, and the
+Caddy block above. Bookmarks to the root land on the site; the Sign in
+and Sign up buttons there go to `/app/`. Sessions survive the move only
+if people sign in again: the cookie set at the root had `Path=/`, the
+new one has `Path=/app`, and the browser sends the old one too, which the
+server ignores. Nothing in the database refers to the path.
 
 ## Upgrading
 
@@ -235,7 +273,7 @@ Edit `/etc/systemd/system/trbillo.service` and then
 
 | Env | Default | Purpose |
 |---|---|---|
-| `BASE_PATH` | `/trbillo` | URL prefix the app serves under (empty = root) |
+| `BASE_PATH` | `/trbillo` | URL prefix the app serves under (empty = root). Routes, assets and the session cookie all live under it; `/` and the bare prefix redirect to `prefix/` |
 | `BIND_HOST` | `127.0.0.1` | Interface the Go server binds to; leave unset behind a local reverse proxy |
 | `PORT` | `8080` | TCP port the Go server binds to |
 | `DB_PATH` | `/var/lib/trbillo/trbillo.db` | SQLite file location |
